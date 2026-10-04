@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/kazi/client";
 import { hostOf, RECOMMENDATION_LABEL, STATUS_PROGRESS } from "@/lib/kazi/labels";
 import { ACTIVE_STATUSES, type Job, type ProviderStatus, type Resume } from "@/lib/kazi/types";
+import { Markdown } from "./markdown";
 import { ProviderBanner } from "./provider-banner";
 import { StatusBadge } from "./status-badge";
 
@@ -136,6 +137,7 @@ export function Dashboard() {
   }
 
   const reviewCount = jobs?.filter((j) => j.status === "ready_for_review").length ?? 0;
+  const spotlight = jobs?.find((job) => job.status === "ready_for_review" && (job.tailoredResume || job.coverLetter));
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -149,6 +151,8 @@ export function Dashboard() {
         </div>
         <ProviderBanner status={status} />
       </header>
+
+      {spotlight && <ReviewSpotlight job={spotlight} />}
 
       {error && (
         <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -327,5 +331,52 @@ export function Dashboard() {
         )}
       </section>
     </div>
+  );
+}
+
+function ReviewSpotlight({ job }: { job: Job }) {
+  const title = job.analysis?.title || hostOf(job.url);
+  return (
+    <Card id="latest-review">
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center justify-between gap-2">
+          <span>{title}</span>
+          <span className="flex items-center gap-2 text-sm font-normal text-muted-foreground">
+            {job.fit && (
+              <span>
+                {RECOMMENDATION_LABEL[job.fit.recommendation]} · {Math.round(job.fit.confidence * 100)}%
+              </span>
+            )}
+            <StatusBadge status={job.status} />
+          </span>
+        </CardTitle>
+        <CardDescription>
+          {job.analysis?.company ? `${job.analysis.company} · ` : ""}
+          {job.analysis?.location ? `${job.analysis.location} · ` : ""}
+          Tailored resume and cover letter, waiting for your review.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="min-w-0">
+            <p className="mb-2 text-sm font-medium">Tailored resume</p>
+            <div className="max-h-[28rem] overflow-auto rounded-lg border p-4">
+              {job.tailoredResume ? <Markdown>{job.tailoredResume}</Markdown> : <p className="text-sm text-muted-foreground">No resume yet.</p>}
+            </div>
+          </div>
+          <div className="min-w-0">
+            <p className="mb-2 text-sm font-medium">Cover letter</p>
+            <div className="max-h-[28rem] overflow-auto rounded-lg border p-4">
+              <div className="kazi-md whitespace-pre-wrap">{job.coverLetter || "No cover letter yet."}</div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter>
+        <Button nativeButton={false} render={<Link href={`/jobs/${job.id}`} />}>
+          Review and approve <ArrowRight data-icon="inline-end" />
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }
