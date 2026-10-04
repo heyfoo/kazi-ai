@@ -192,7 +192,9 @@ export async function decide<Q extends Record<string, Question>>(opts: DecideOpt
       opts.onDecision?.(d);
       return d;
     } catch (err) {
-      errors.push((err as Error).message);
+      const message = (err as Error).message;
+      errors.push(message);
+      console.error("kazi decision fallback:", message);
     }
   }
   const d: Decision<Q> = { answers: opts.heuristic(), engine: "heuristic", tokensIn: 0, costUsd: 0 };

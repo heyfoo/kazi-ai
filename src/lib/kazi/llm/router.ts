@@ -90,7 +90,7 @@ export async function generate(
 }
 
 export function extractJson(text: string): unknown {
-  const stripped = text.replace(/```(?:json)?/gi, "").trim();
+  const stripped = text.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```(?:json)?/gi, "").trim();
   const start = stripped.search(/[[{]/);
   if (start === -1) throw new Error("No JSON object in response");
   const open = stripped[start];

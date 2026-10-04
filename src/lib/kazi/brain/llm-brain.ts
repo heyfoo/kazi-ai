@@ -122,7 +122,7 @@ Return JSON: {
     const res = await generate(
       this.chain,
       {
-        system: `You write concise, specific cover letters (220-320 words, 3-4 short paragraphs). ${NO_FABRICATION} No clichés like "I am writing to express my interest". Plain text, no markdown headers.`,
+        system: `You write concise, specific cover letters (220-320 words, 3-4 short paragraphs). ${NO_FABRICATION} Attribute each achievement to the employer where it actually happened. No clichés like "I am writing to express my interest". Plain text, no markdown headers.`,
         prompt: `Candidate: ${profile.name}, ${profile.headline}
 Role: ${analysis.title} at ${analysis.company}
 Why the role matters (from posting): ${analysis.summary}

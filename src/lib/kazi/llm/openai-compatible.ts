@@ -14,6 +14,7 @@ type Config = {
   model: string;
   paid: boolean;
   extraHeaders?: Record<string, string>;
+  extraBody?: Record<string, unknown>;
   supportsJsonMode: boolean;
 };
 
@@ -23,33 +24,44 @@ export function openAiCompatibleGenerator(cfg: Config): Generator {
     model: cfg.model,
     paid: cfg.paid,
     async generate(opts: GenerateOptions): Promise<GenerateResult> {
-      let res: Response;
-      try {
-        res = await fetchWithTimeout(
-          `${cfg.baseUrl}/chat/completions`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${cfg.apiKey}`,
-              ...cfg.extraHeaders,
+      let res: Response | undefined;
+      let lastStatus = "";
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          res = await fetchWithTimeout(
+            `${cfg.baseUrl}/chat/completions`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${cfg.apiKey}`,
+                ...cfg.extraHeaders,
+              },
+              body: JSON.stringify({
+                model: cfg.model,
+                temperature: opts.temperature ?? 0.3,
+                max_tokens: opts.maxTokens ?? 1200,
+                response_format:
+                  opts.json && cfg.supportsJsonMode ? { type: "json_object" } : undefined,
+                ...cfg.extraBody,
+                messages: [
+                  { role: "system", content: opts.system },
+                  { role: "user", content: opts.prompt },
+                ],
+              }),
             },
-            body: JSON.stringify({
-              model: cfg.model,
-              temperature: opts.temperature ?? 0.3,
-              max_tokens: opts.maxTokens ?? 1200,
-              response_format:
-                opts.json && cfg.supportsJsonMode ? { type: "json_object" } : undefined,
-              messages: [
-                { role: "system", content: opts.system },
-                { role: "user", content: opts.prompt },
-              ],
-            }),
-          },
-          90_000,
-        );
-      } catch (err) {
-        throw new ProviderError(cfg.name, (err as Error).message);
+            90_000,
+          );
+        } catch (err) {
+          throw new ProviderError(cfg.name, (err as Error).message);
+        }
+        if (res.status !== 429 && res.status !== 503) break;
+        lastStatus = `${res.status} ${(await res.text()).slice(0, 180)}`;
+        await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)));
+        res = undefined;
+      }
+      if (!res) {
+        throw new ProviderError(cfg.name, lastStatus || "rate limited");
       }
       if (!res.ok) {
         const body = await res.text();
@@ -92,13 +104,18 @@ export function openRouterGenerator(): Generator | null {
     baseUrl: "https://openrouter.ai/api/v1",
     apiKey,
     // The ":free" suffix pins OpenRouter's zero-cost routing; swap models freely via env.
-    model: process.env.KAZI_OPENROUTER_MODEL ?? "meta-llama/llama-3.3-70b-instruct:free",
+    model: process.env.KAZI_OPENROUTER_MODEL ?? "qwen/qwen3.8-27b:free",
     paid: false,
-    supportsJsonMode: false,
+    // Free Qwen/Gemma routes honor JSON mode. Without it they interleave reasoning
+    // and return truncated objects that fail to parse.
+    supportsJsonMode: true,
     extraHeaders: {
       "HTTP-Referer": "https://github.com/kazi-agent",
       "X-Title": "Kazi job application agent",
     },
+    // Qwen free routes spend most of max_tokens on hidden reasoning and then
+    // truncate the JSON. Kazi's prompts are short and explicit, so skip it.
+    extraBody: { reasoning: { effort: "none" } },
   });
 }
 
