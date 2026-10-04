@@ -15,6 +15,19 @@ const SECTION_ALIASES: Record<string, string[]> = {
 const BULLET_RE = /^\s*([-•*▪◦‣]|\d+[.)])\s+/;
 const DATE_RE = /((jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{4}|\d{4}|present|current)/i;
 
+/** Case-insensitive dedupe that keeps the first (usually the candidate's own) spelling. */
+function dedupeSkills(skills: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const s of skills) {
+    const key = s.toLowerCase().replace(/[^a-z0-9+#]/g, "");
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+  }
+  return out;
+}
+
 function sectionOf(line: string): string | null {
   const clean = line.replace(/[:#*_]/g, "").trim().toLowerCase();
   if (clean.length > 40) return null;
@@ -31,6 +44,7 @@ function sectionOf(line: string): string | null {
  */
 export class TemplateBrain implements Brain {
   name = "template (no LLM configured)";
+  cacheKey = "template-v2";
 
   async extractProfile(resumeText: string): Promise<ResumeProfile> {
     const text = collapseWhitespace(resumeText);
@@ -53,17 +67,25 @@ export class TemplateBrain implements Brain {
     profile.phone = text.match(/(\+?\d[\d\s().-]{8,}\d)/)?.[0]?.trim() ?? "";
     profile.links = [...new Set(text.match(/(https?:\/\/\S+|(?:www\.)?(?:linkedin\.com|github\.com)\/\S+)/gi) ?? [])];
 
-    const header = lines.slice(0, 6).filter((l) => l.trim());
-    profile.name = header[0]?.replace(/[|•·].*$/, "").trim() ?? "";
-    const headlineCandidate = header.slice(1).find((l) => !/@|https?:|\d{3}/.test(l) && l.length < 80);
-    profile.headline = headlineCandidate?.trim() ?? "";
+    // Header = everything before the first section heading (capped), e.g. name + contact line.
+    const firstSection = lines.findIndex((l) => l.trim() && sectionOf(l.trim()));
+    const headerEnd = firstSection === -1 ? Math.min(6, lines.length) : Math.min(firstSection, 6);
+    const header = lines.slice(0, headerEnd).map((l) => l.trim()).filter(Boolean);
+    profile.name = header[0]?.split(/\s*[|•·]\s*/)[0]?.trim() ?? "";
+    const segments = header
+      .slice(1)
+      .flatMap((l) => l.split(/\s*[|•·]\s*/))
+      .map((s) => s.trim())
+      .filter((s) => s && !/@|https?:|www\.|linkedin\.com|github\.com|\d{3}/.test(s));
+    profile.headline = segments.find((s) => s.length < 80 && !/,/.test(s)) ?? segments[0] ?? "";
+    profile.location = segments.find((s) => s !== profile.headline && /,/.test(s) && s.length < 60) ?? "";
 
     let current: string | null = null;
     let exp: ResumeProfile["experience"][number] | null = null;
     const summaryLines: string[] = [];
     const skillLines: string[] = [];
 
-    for (const raw of lines.slice(header.length)) {
+    for (const raw of lines.slice(headerEnd)) {
       const line = raw.trim();
       if (!line) continue;
       const sec = sectionOf(line);
@@ -110,32 +132,40 @@ export class TemplateBrain implements Brain {
       .split(/[,•·|;\n]+/)
       .map((s) => s.replace(/^[-*\s]+/, "").trim())
       .filter((s) => s && s.length < 40);
-    profile.skills = [...new Set([...declared, ...findSkills(text)])].slice(0, 40);
+    profile.skills = dedupeSkills([...declared, ...findSkills(text)]).slice(0, 40);
     return profile;
   }
 
   async analyzeJob(jdText: string, url: string): Promise<JDAnalysis> {
     const text = collapseWhitespace(jdText);
     const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-    const title = lines.find((l) => l.length < 90 && /engineer|developer|manager|designer|analyst|scientist|lead|architect|specialist|consultant|intern/i.test(l)) ?? lines[0] ?? "Role";
-    const company =
-      text.match(/\b(?:at|join|about)\s+([A-Z][\w&.-]+(?:\s+[A-Z][\w&.-]+){0,2})/)?.[1] ??
-      new URL(url, "http://x").hostname.replace(/^www\./, "").split(".")[0] ??
-      "";
-    const skills = findSkills(text);
+    const ROLE_RE = /engineer|developer|manager|designer|analyst|scientist|lead|architect|specialist|consultant|intern|director|coordinator|associate/i;
+    const rawTitle = lines.find((l) => l.length < 90 && ROLE_RE.test(l)) ?? lines[0] ?? "Role";
 
-    // Requirements ≈ bullet-ish lines containing a recognised skill or a requirement cue word.
-    const requirementLines = lines.filter((l) => /(experience|proficien|knowledge|familiar|required|must|strong|years)/i.test(l) && l.length < 220);
-    const mustHave = [...new Set([...skills.slice(0, 8), ...requirementLines.slice(0, 4)])].slice(0, 10);
-    const niceToHave = lines.filter((l) => /(nice to have|bonus|plus|preferred)/i.test(l)).slice(0, 5);
-    const responsibilities = lines.filter((l) => /^(you will|you'll|build|design|own|lead|develop|collaborate|drive|ship)/i.test(l)).slice(0, 6);
+    // Page titles are usually "Role - Company" or "Role | Company"; split them apart.
+    const titleParts = rawTitle.split(/\s+(?:[-–—|]|at|@)\s+/);
+    const title = titleParts[0]?.trim() || rawTitle;
+    const hostname = new URL(url, "http://x").hostname.replace(/^www\./, "");
+    const hostIsName = /^[a-z]/i.test(hostname) && !/^localhost$/i.test(hostname);
+    const company =
+      titleParts.slice(1).find((p) => p && !/job|career|hiring|remote/i.test(p))?.trim() ??
+      text.match(/\b(?:at|join|about)\s+([A-Z][\w&.-]+(?:\s+[A-Z][\w&.-]+){0,2})/)?.[1] ??
+      (hostIsName ? hostname.split(".")[0] : "");
+
+    const skills = findSkills(text);
+    const isHeading = (l: string) => l.length < 20 || /:$/.test(l);
+    const requirementLines = lines.filter((l) => !isHeading(l) && /(experience|proficien|knowledge|familiar|required|must|strong|years)/i.test(l) && l.length < 220);
+    const mustHave = skills.length >= 3 ? skills.slice(0, 10) : [...new Set([...skills, ...requirementLines.slice(0, 6)])].slice(0, 10);
+    const niceToHave = lines.filter((l) => !isHeading(l) && /(nice to have|bonus|plus|preferred)/i.test(l)).slice(0, 5);
+    const responsibilities = lines.filter((l) => !isHeading(l) && /^(you will|you'll|build|design|own|lead|develop|collaborate|drive|ship|work|partner|write)/i.test(l)).slice(0, 6);
 
     const freq = new Map<string, number>();
     for (const t of tokenize(text)) freq.set(t, (freq.get(t) ?? 0) + 1);
     const keywords = [...new Set([...skills, ...[...freq.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t)])].slice(0, 15);
     const seniority = text.match(/\b(intern|junior|mid-level|senior|staff|principal|lead|director|head of)\b/i)?.[1] ?? "";
     const location = text.match(/\b(remote|hybrid|on-site|onsite)\b/i)?.[1] ?? "";
-    const summary = text.split(/(?<=[.!?])\s+/).slice(0, 2).join(" ").slice(0, 320);
+    const prose = lines.filter((l) => l.length > 60 && !BULLET_RE.test(l)).join(" ");
+    const summary = prose.split(/(?<=[.!?])\s+/).slice(0, 2).join(" ").slice(0, 320);
 
     return { title, company, location, seniority, mustHave, niceToHave, responsibilities, keywords, summary };
   }

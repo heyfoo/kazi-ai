@@ -33,6 +33,8 @@ export type UnsupportedClaimsInput = {
  */
 export interface Brain {
   name: string;
+  /** Changes whenever output would differ for the same input (model or parser version); used for caching. */
+  cacheKey: string;
   extractProfile(resumeText: string): Promise<ResumeProfile>;
   analyzeJob(jdText: string, url: string): Promise<JDAnalysis>;
   tailorResume(input: TailorInput): Promise<TailorOutput>;

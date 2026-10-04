@@ -24,7 +24,7 @@ async function brainForRun(): Promise<{ brain: Brain; chain: Awaited<ReturnType<
 export async function ensureResumeProfile(brain: Brain, usage: Usage): Promise<{ profile: ResumeProfile; rawText: string }> {
   const db = await store.get();
   if (!db.resume?.rawText) throw new Error("No resume on file. Add your resume before running jobs.");
-  const key = contentHash("profile", db.resume.rawText, brain.name);
+  const key = contentHash("profile", db.resume.rawText, brain.cacheKey);
   if (db.resume.profile && db.resume.profileEngine === key) {
     usage.cacheHits += 1;
     return { profile: db.resume.profile, rawText: db.resume.rawText };
@@ -82,7 +82,7 @@ export async function runJob(jobId: string): Promise<Job> {
     }
 
     await setStatus(jobId, "analyzing", "Extracting structured requirements from the posting");
-    const analysis = await cached(contentHash("jd", jdText, brain.name), () => brain.analyzeJob(jdText!, job.url), () => void (usage.cacheHits += 1));
+    const analysis = await cached(contentHash("jd", jdText, brain.cacheKey), () => brain.analyzeJob(jdText!, job.url), () => void (usage.cacheHits += 1));
     await store.updateJob(jobId, { analysis });
 
     await setStatus(jobId, "screening", "Screening fit and grading resume bullets");

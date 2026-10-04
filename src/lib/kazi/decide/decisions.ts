@@ -25,7 +25,14 @@ export function profileText(profile: ResumeProfile): string {
 
 export async function screenFit(profile: ResumeProfile, analysis: JDAnalysis, ctx: DecisionContext): Promise<FitDecision> {
   const text = profileText(profile);
-  const cov = coverage([...analysis.mustHave, ...analysis.keywords], text);
+  const seen = new Set<string>();
+  const wanted = [...analysis.mustHave, ...analysis.keywords].filter((s) => {
+    const k = s.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  const cov = coverage(wanted, text);
   const mustCov = coverage(analysis.mustHave, text);
 
   const questions = {

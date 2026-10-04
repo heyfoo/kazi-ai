@@ -12,12 +12,14 @@ const NO_FABRICATION =
 // Prompts are written for 3B-class models: short, explicit field lists, one job per call.
 export class LlmBrain implements Brain {
   name: string;
+  cacheKey: string;
 
   constructor(
     private chain: Generator[],
     private tracker: Tracked,
   ) {
     this.name = chain.map((g) => `${g.name}:${g.model}`).join(" → ");
+    this.cacheKey = `llm:${this.name}`;
   }
 
   async extractProfile(resumeText: string): Promise<ResumeProfile> {
