@@ -42,3 +42,4 @@ next-env.d.ts
 
 # kazi local data (resume, jobs, cache)
 /data
+!.env.example

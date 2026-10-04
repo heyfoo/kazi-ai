@@ -314,7 +314,7 @@ export function Dashboard() {
                         <Button variant="ghost" size="xs" onClick={() => remove(job.id)} aria-label="Delete">
                           <Trash2 />
                         </Button>
-                        <Button variant="outline" size="xs" render={<Link href={`/jobs/${job.id}`} />}>
+                        <Button variant="outline" size="xs" nativeButton={false} render={<Link href={`/jobs/${job.id}`} />}>
                           {job.status === "needs_jd" ? "Paste description" : "Open"} <ArrowRight data-icon="inline-end" />
                         </Button>
                       </div>

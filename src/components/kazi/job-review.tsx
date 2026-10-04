@@ -353,7 +353,7 @@ export function JobReview({ id }: { id: string }) {
             <Button variant="outline" size="sm" onClick={() => downloadText(`${fileBase}-cover-letter.md`, coverDraft)}>
               <Download data-icon="inline-start" /> Cover letter (.md)
             </Button>
-            <Button variant="outline" size="sm" render={<a href={`/jobs/${id}/print?doc=resume`} target="_blank" rel="noreferrer" />}>
+            <Button variant="outline" size="sm" nativeButton={false} render={<a href={`/jobs/${id}/print?doc=resume`} target="_blank" rel="noreferrer" />}>
               <Printer data-icon="inline-start" /> Print resume to PDF
             </Button>
           </div>
@@ -407,7 +407,7 @@ function DocEditor(props: {
         <Button variant="ghost" size="xs" onClick={props.onDownload}>
           <Download data-icon="inline-start" /> Download
         </Button>
-        <Button variant="ghost" size="xs" render={<a href={props.printHref} target="_blank" rel="noreferrer" />}>
+        <Button variant="ghost" size="xs" nativeButton={false} render={<a href={props.printHref} target="_blank" rel="noreferrer" />}>
           <Printer data-icon="inline-start" /> Print / PDF
         </Button>
       </div>

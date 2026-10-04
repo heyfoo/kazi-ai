@@ -11,11 +11,10 @@ export function renderResumeMarkdown(
   } = {},
 ): string {
   const lines: string[] = [];
-  lines.push(`# ${profile.name || "Your Name"}`);
-  if (profile.headline) lines.push(`**${profile.headline}**`);
+  lines.push(`# ${profile.name || "Your Name"}`, "");
+  if (profile.headline) lines.push(`**${profile.headline}**`, "");
   const contact = [profile.email, profile.phone, profile.location, ...profile.links].filter(Boolean);
-  if (contact.length) lines.push(contact.join(" · "));
-  lines.push("");
+  if (contact.length) lines.push(contact.join(" · "), "");
 
   const summary = opts.summary ?? profile.summary;
   if (summary) {
