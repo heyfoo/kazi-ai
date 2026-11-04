@@ -21,7 +21,13 @@ Open <http://127.0.0.1:4717>.
 1. Paste your resume (or upload a PDF) and save it.
 2. Paste job links, one per line, and press **Run Kazi**.
 3. Open each application when it reaches **Ready for review**. Edit the resume or cover letter, then **Approve** or **Reject**.
-4. **Apply now** opens the posting in a new tab; download or print the approved documents, submit on the employer's site, and confirm so Kazi marks it **Applied**.
+4. **Approve**, then **Fill the form**. Playwright opens the posting in a visible browser, types the approved details, and stops before Submit. You click Submit, then confirm so Kazi marks it **Applied**. **Apply now** only opens the link if you would rather paste the documents yourself.
+
+The first time you fill a form, install the browser Kazi drives:
+
+```bash
+npx playwright install chromium
+```
 
 Sites that block automated readers (LinkedIn, Indeed, Glassdoor, JavaScript-only boards) land in **Needs job description**; paste the posting text and Kazi continues.
 

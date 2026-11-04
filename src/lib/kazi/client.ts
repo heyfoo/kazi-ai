@@ -27,6 +27,7 @@ export const api = {
   patchJob: (id: string, patch: { tailoredResume?: string; coverLetter?: string; jdText?: string; action?: "approve" | "reject" | "reopen" | "applied" }) =>
     request<{ job: Job }>(`/api/jobs/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteJob: (id: string) => request<{ ok: true }>(`/api/jobs/${id}`, { method: "DELETE" }),
+  fillForm: (id: string) => request<{ started: true; board: string }>(`/api/jobs/${id}/fill`, { method: "POST" }),
 };
 
 export function downloadText(filename: string, text: string) {

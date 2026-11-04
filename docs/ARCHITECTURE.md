@@ -68,9 +68,11 @@ Why local first: it is free, private (your resume never leaves the machine), and
 
 ## Human in the loop
 
-The agent stops at `ready_for_review` every time. The review page shows the fit decision with its probabilities, matched and missing must-haves, what Kazi changed and why, the truthfulness check, and editable resume and cover letter with Markdown preview, download, and print-to-PDF. **Approve** unlocks **Apply now**, which opens the posting and asks you to confirm after you submit.
+The agent stops at `ready_for_review` every time. The review page shows the fit decision with its probabilities, matched and missing must-haves, what Kazi changed and why, the truthfulness check, and editable resume and cover letter with Markdown preview, download, and print-to-PDF. **Approve** unlocks **Fill the form** and **Apply now**.
 
-Kazi deliberately does **not** auto-submit forms. Job boards block bots, most require accounts and consent, and a mis-submitted application is not recoverable. The roadmap item below keeps a human on the submit button while removing the copy-paste.
+**Fill the form** (`src/lib/kazi/fill-form.ts`) launches a headed Playwright browser on a Greenhouse, Lever, or Workable posting, types the approved name, email, phone, cover letter, and resume file, and stops. The script never clicks Submit. While the window stays open it watches the fields, and when you close it any edits are appended to `data/form-edits.jsonl` for a later version to learn from. **Apply now** still just opens the posting.
+
+Kazi does not auto-submit forms. Job boards block bots, most require accounts and consent, and a mis-submitted application is not recoverable.
 
 ## Storage
 
@@ -78,7 +80,7 @@ A single JSON file (`data/kazi.json`) behind a serialized read-modify-write queu
 
 ## Roadmap (not built yet)
 
-1. **Form-fill assist**: a Playwright script or browser extension that pre-fills common ATS forms (Greenhouse, Lever, Workable) from the approved documents and stops before the submit button.
+1. **Learn from form edits**: read `data/form-edits.jsonl` and prefer the wording you kept last time. The file is written now; nothing reads it yet.
 2. **Fine-tuned style**: learn the user's edits across reviews (diff of generated vs approved) and feed them back as few-shot examples.
 3. **Jev distillation**: once a user has screened a few hundred jobs, train a tiny local classifier on Jev's answers (the Jevstiller pattern) so screening runs fully offline.
 4. **Batch import**: paste a search-results page or RSS feed instead of individual links.

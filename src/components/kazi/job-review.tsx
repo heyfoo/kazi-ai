@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Check, Download, ExternalLink, Eye, Pencil, Printer, RotateCcw, Save, ShieldAlert, ShieldCheck, X } from "lucide-react";
+import { ArrowLeft, Check, Download, ExternalLink, Eye, Pencil, Printer, RotateCcw, Save, ShieldAlert, ShieldCheck, TextCursorInput, X } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ export function JobReview({ id }: { id: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [applyOpen, setApplyOpen] = useState(false);
+  const [fillNote, setFillNote] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -298,7 +299,7 @@ export function JobReview({ id }: { id: string }) {
           <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground">
               {job.status === "ready_for_review" && "Review and edit, then approve to unlock applying."}
-              {job.status === "approved" && "Approved. Kazi opens the posting; you submit, then confirm here."}
+              {job.status === "approved" && (fillNote ?? "Approved. Fill the form types your documents in and stops before Submit. You click Submit, then confirm here.")}
               {job.status === "rejected" && "Rejected. Nothing will be sent for this role."}
               {job.status === "applied" && `Applied ${job.appliedAt ? new Date(job.appliedAt).toLocaleString() : ""}.`}
             </p>
@@ -317,6 +318,18 @@ export function JobReview({ id }: { id: string }) {
                 <>
                   <Button variant="outline" onClick={() => act("reopen")} disabled={busy !== null}>
                     Back to review
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={busy !== null}
+                    onClick={() =>
+                      run("fill", async () => {
+                        const result = await api.fillForm(id);
+                        setFillNote(`A ${result.board} window is opening with the approved details filled in. Kazi will not click Submit.`);
+                      })
+                    }
+                  >
+                    <TextCursorInput data-icon="inline-start" /> Fill the form
                   </Button>
                   <Button
                     onClick={() => {
